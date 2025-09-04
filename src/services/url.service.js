@@ -77,7 +77,7 @@ async function UpdateTheURLUsingMongoIdService(mongoId, city, country) {
 async function GetURLsOfTheUserUsingUserIdService(userId){
     try{
 
-        const URLS = await URLSModel.find({"userId":userId}).exec()
+        const URLS = await URLSModel.find({"userId":userId}).sort({ createdAt: -1 }).exec()
 
         if(!URLS){
             throw new Error(`Unable to fetch URLS with userId : ${userId} `)
