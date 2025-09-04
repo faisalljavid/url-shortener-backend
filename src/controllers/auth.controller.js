@@ -166,7 +166,7 @@ const SigninController = async (req, res)=>{
             role : roleInDB
         }
 
-        const token = await jwt.sign(payload, JWT_SECRET_KEY, {expiresIn : '5m'})
+        const token = await jwt.sign(payload, JWT_SECRET_KEY, {expiresIn : '24h'})
 
         res.status(201).json({
             success : true,
