@@ -27,13 +27,17 @@ const CreateNewOrganizationService = async (organizationDomain, organizationName
 
         const organizationDetails = {
             name : organizationName
+        };
+
+        // --- MODIFIED LOGIC ---
+        // Only add the 'domain' field to the database document if a valid 
+        // domain string is provided. This prevents issues when creating personal
+        // organizations that don't have a domain.
+        if (organizationDomain) {
+            organizationDetails.domain = organizationDomain;
         }
 
-        if(organizationDomain){
-            organizationDetails.domain = organizationDomain
-        }
-
-        const organization = await ORGANIZATIONSModel.create(organizationDetails)
+        const organization = await ORGANIZATIONSModel.create(organizationDetails);
 
         if(organization){
             return {
@@ -45,9 +49,10 @@ const CreateNewOrganizationService = async (organizationDomain, organizationName
         }
 
     }catch(err){
-        console.log(`Error in CreateNewOrganizationService with err : ${err}`)
+        console.error(`Error in CreateNewOrganizationService with err : ${err.message}`);
         return {
-            success : false
+            success : false,
+            message: err.message
         }
     }
 }

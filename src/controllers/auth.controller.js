@@ -1,7 +1,6 @@
 // const httpStatus = require("http-status")
-const {CheckEmailDomainIsPersonalOrNotUtil} = require("./../utils/auth.utils")
 const {IsUserPresentUsingEmailService, CreateNewUserService} = require("./../services/user.service")
-const {IsOrganizationPresentUsingOrgDomainService, CreateNewOrganizationService} = require("./../services/organization.service")
+const {CreateNewOrganizationService} = require("./../services/organization.service")
 require("dotenv").config()
 const jwt = require('jsonwebtoken')
 
@@ -35,7 +34,7 @@ const SignupController = async (req, res)=>{
         }
 
 
-        // TODO : if user is already present, then return error
+        // if user is already present, then return error
         const IsUserPresentUsingEmailServiceResult = await IsUserPresentUsingEmailService(email)
         if(IsUserPresentUsingEmailServiceResult.success){
             const err = new Error("User already present")
@@ -43,76 +42,48 @@ const SignupController = async (req, res)=>{
             throw err
         }
 
-        const emailDomain = email.split("@")[1]
+        // The old logic for checking personal vs. business emails is removed.
+        // Now, we create a personal organization for every new user.
 
-        console.log(emailDomain)
+        // 1. Create a personal organization for the new user.
+        const organizationName = `${fullName}'s Organization`;
+        // We pass `null` for the domain, as it's a personal workspace.
+        const CreateNewOrganizationServiceResult = await CreateNewOrganizationService(null, organizationName);
 
-        const CheckEmailDomainIsPersonalOrNotUtilResult = CheckEmailDomainIsPersonalOrNotUtil(emailDomain)
-
-        if(CheckEmailDomainIsPersonalOrNotUtilResult.success){
-            // if email is personal email
-            res.status(201).json({
-                success : true,
-                message : "Email is Personal"
-            })
-        }else{
-            // if email is business/professional email
-
-            // from email extract the organization domain and name
-            const organizationDomain = emailDomain
-            const organizationName = emailDomain.split(".")[0].toUpperCase()
-            let organizationId
-            let organizationRole = "ORG_MEMBER" 
-
-            // check if organiztion is already created or not
-            const IsOrganizationPresentUsingOrgDomainServiceResult = await IsOrganizationPresentUsingOrgDomainService(organizationDomain)
-    
-            // if organization is already created for the user, then use the existing organization detail 
-            // otherwise create new organization
-            if(IsOrganizationPresentUsingOrgDomainServiceResult.success){
-                // organization is already present
-                organizationId = IsOrganizationPresentUsingOrgDomainServiceResult.data._id
-            }else{
-                // organization is not present, then create organization
-                const CreateNewOrganizationServiceResult = await CreateNewOrganizationService(organizationDomain, organizationName)
-                if(!CreateNewOrganizationServiceResult.success){
-                    const err = new Error(`Unable to create organization with name : ${organizationName} and domain : ${organizationDomain}`)
-                    err.statusCode = 500
-                    throw err
-                }
-                organizationId = CreateNewOrganizationServiceResult.data._id
-                organizationRole = "ORG_ADMIN"
-            }
-
-            // TODO4 : create user
-
-            // convert password to encryptedPassword
-            const salt = await bcrypt.genSalt()
-            const encryptedPassword = await bcrypt.hash(password, salt)
-
-            const CreateNewUserServiceResult = await CreateNewUserService(fullName, email, encryptedPassword, organizationId, organizationRole)
-
-            if(!CreateNewUserServiceResult.success){
-                const err = new Error(`Unable to create user with email : ${email}`)
-                err.statusCode = 400
-                throw err
-            }
-
-            const {fullName : fullNameDB, email : emailDB, organizationId : organizationIdDB, _id : userId} = CreateNewUserServiceResult.data
-
-            res.status(201).json({
-                success : true,
-                message : "User is created",
-                data : {
-                    fullname : fullNameDB,
-                    email : emailDB,
-                    organizationId : organizationIdDB,
-                    userId
-                }
-            })
-
+        if (!CreateNewOrganizationServiceResult.success) {
+            const err = new Error(`Unable to create personal organization for user: ${email}`);
+            err.statusCode = 500;
+            throw err;
         }
 
+        const organizationId = CreateNewOrganizationServiceResult.data._id;
+        // The user is the admin of their own personal organization.
+        const organizationRole = "ORG_ADMIN";
+
+        // 2. Create the user.
+        const salt = await bcrypt.genSalt()
+        const encryptedPassword = await bcrypt.hash(password, salt)
+
+        const CreateNewUserServiceResult = await CreateNewUserService(fullName, email, encryptedPassword, organizationId, organizationRole)
+
+        if(!CreateNewUserServiceResult.success){
+            const err = new Error(`Unable to create user with email : ${email}`)
+            err.statusCode = 500
+            throw err
+        }
+
+        const {fullName : fullNameDB, email : emailDB, organizationId : organizationIdDB, _id : userId} = CreateNewUserServiceResult.data
+
+        res.status(201).json({
+            success : true,
+            message : "User is created",
+            data : {
+                fullname : fullNameDB,
+                email : emailDB,
+                organizationId : organizationIdDB,
+                userId
+            }
+        });
         
 
     }catch(err){
