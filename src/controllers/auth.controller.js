@@ -1,6 +1,6 @@
 // const httpStatus = require("http-status")
-const {IsUserPresentUsingEmailService, CreateNewUserService} = require("./../services/user.service")
-const {CreateNewOrganizationService} = require("./../services/organization.service")
+const { IsUserPresentUsingEmailService, CreateNewUserService } = require("./../services/user.service")
+const { CreateNewOrganizationService } = require("./../services/organization.service")
 require("dotenv").config()
 const jwt = require('jsonwebtoken')
 
@@ -10,24 +10,24 @@ const JWT_SECRET_KEY = process.env[`${NODE_ENV}_JWT_SECRET_KEY`]
 
 const bcrypt = require('bcrypt')
 
-const SignupController = async (req, res)=>{
-    try{
+const SignupController = async (req, res) => {
+    try {
 
-        const {fullName, email, password} = req.body
+        const { fullName, email, password } = req.body
 
-        if(!fullName){
+        if (!fullName) {
             const err = new Error("fullName is required in the body")
             err.statusCode = 400
             throw err
         }
 
-        if(!email){
+        if (!email) {
             const err = new Error("email is required in the body")
             err.statusCode = 400
             throw err
         }
 
-        if(!password){
+        if (!password) {
             const err = new Error("password is required in the body")
             err.statusCode = 400
             throw err
@@ -36,7 +36,7 @@ const SignupController = async (req, res)=>{
 
         // if user is already present, then return error
         const IsUserPresentUsingEmailServiceResult = await IsUserPresentUsingEmailService(email)
-        if(IsUserPresentUsingEmailServiceResult.success){
+        if (IsUserPresentUsingEmailServiceResult.success) {
             const err = new Error("User already present")
             err.statusCode = 400
             throw err
@@ -66,66 +66,66 @@ const SignupController = async (req, res)=>{
 
         const CreateNewUserServiceResult = await CreateNewUserService(fullName, email, encryptedPassword, organizationId, organizationRole)
 
-        if(!CreateNewUserServiceResult.success){
+        if (!CreateNewUserServiceResult.success) {
             const err = new Error(`Unable to create user with email : ${email}`)
             err.statusCode = 500
             throw err
         }
 
-        const {fullName : fullNameDB, email : emailDB, organizationId : organizationIdDB, _id : userId} = CreateNewUserServiceResult.data
+        const { fullName: fullNameDB, email: emailDB, organizationId: organizationIdDB, _id: userId } = CreateNewUserServiceResult.data
 
         res.status(201).json({
-            success : true,
-            message : "User is created",
-            data : {
-                fullname : fullNameDB,
-                email : emailDB,
-                organizationId : organizationIdDB,
+            success: true,
+            message: "User is created",
+            data: {
+                fullname: fullNameDB,
+                email: emailDB,
+                organizationId: organizationIdDB,
                 userId
             }
         });
-        
 
-    }catch(err){
+
+    } catch (err) {
         console.log(`Error in SignupController with err : ${err}`)
         res.status(err.statusCode ? err.statusCode : 500).json({
-            success : false,
-            message : err.message
+            success: false,
+            message: err.message
         })
     }
 }
 
-const SigninController = async (req, res)=>{
-    try{
+const SigninController = async (req, res) => {
+    try {
 
-        const {email, password} = req.body
+        const { email, password } = req.body
 
 
-        if(!email){
+        if (!email) {
             const err = new Error("email is required in the body")
             err.statusCode = 400
             throw err
         }
 
-        if(!password){
+        if (!password) {
             const err = new Error("password is required in the body")
             err.statusCode = 400
             throw err
-        }  
-        
+        }
+
         // If user is already present, then return error
         const IsUserPresentUsingEmailServiceResult = await IsUserPresentUsingEmailService(email)
-        if(!IsUserPresentUsingEmailServiceResult.success){
+        if (!IsUserPresentUsingEmailServiceResult.success) {
             const err = new Error("Invalid Credentials")
             err.statusCode = 400
             throw err
         }
 
-        const {data : {fullName : fullNameInDB, email : emailInDB, password : encryptedPasswordInDB, _id : userIdInDB, organizationId : organizationIdInDB, role : roleInDB}} = IsUserPresentUsingEmailServiceResult
+        const { data: { fullName: fullNameInDB, email: emailInDB, password: encryptedPasswordInDB, _id: userIdInDB, organizationId: organizationIdInDB, role: roleInDB } } = IsUserPresentUsingEmailServiceResult
 
         const passwordCheck = await bcrypt.compare(password, encryptedPasswordInDB)
 
-        if(!passwordCheck){
+        if (!passwordCheck) {
             const err = new Error("Invalid Credentials")
             err.statusCode = 400
             throw err
@@ -133,27 +133,50 @@ const SigninController = async (req, res)=>{
 
         // generate token for the user, and return back the token to the user
         const payload = {
-            userId : userIdInDB,
-            role : roleInDB
+            userId: userIdInDB,
+            role: roleInDB
         }
 
-        const token = await jwt.sign(payload, JWT_SECRET_KEY, {expiresIn : '24h'})
+        const token = await jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: '24h' })
 
         res.status(201).json({
-            success : true,
-            token : token
+            success: true,
+            token: token
         })
 
-    }catch(err){
+    } catch (err) {
         console.log(`Error in SigninController with err : ${err}`)
         res.status(err.statusCode ? err.statusCode : 500).json({
-            success : false,
-            message : err.message
+            success: false,
+            message: err.message
+        })
+    }
+}
+
+const VerifyController = async (req, res) => {
+    try {
+        // The token is already verified by the auth middleware
+        // Just return the user info from the token
+        const { userId, role } = req
+
+        res.status(200).json({
+            success: true,
+            user: {
+                id: userId,
+                role: role
+            }
+        })
+    } catch (err) {
+        console.log(`Error in VerifyController with err : ${err}`)
+        res.status(500).json({
+            success: false,
+            message: err.message
         })
     }
 }
 
 module.exports = {
     SignupController,
-    SigninController
+    SigninController,
+    VerifyController
 }
