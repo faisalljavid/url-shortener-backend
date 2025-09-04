@@ -54,10 +54,10 @@ async function UpdateTheURLUsingMongoIdService(mongoId, city, country) {
 
         URL.clickedCount = URL.clickedCount + 1
         
-        URL.openedAtTimestamp = URL.openedAtTimestamp.push(new Date().getTime())
+        URL.openedAtTimestamp.push(new Date().getTime())
 
         if(city || country){
-            URL.openedAtLocation = URL.openedAtLocation.push(`${country}-${city}`)
+            URL.openedAtLocation.push(`${country}-${city}`)
         }
 
         await URL.save()
